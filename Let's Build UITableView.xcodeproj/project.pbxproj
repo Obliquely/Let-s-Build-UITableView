@@ -19,6 +19,10 @@
 		EF08519E16AAFF9500AB28E7 /* PGViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = EF08519D16AAFF9500AB28E7 /* PGViewController.m */; };
 		EF0851A116AAFF9500AB28E7 /* PGViewController_iPhone.xib in Resources */ = {isa = PBXBuildFile; fileRef = EF08519F16AAFF9500AB28E7 /* PGViewController_iPhone.xib */; };
 		EF0851A416AAFF9500AB28E7 /* PGViewController_iPad.xib in Resources */ = {isa = PBXBuildFile; fileRef = EF0851A216AAFF9500AB28E7 /* PGViewController_iPad.xib */; };
+		EF0851AC16AAFFC300AB28E7 /* PGTableView.m in Sources */ = {isa = PBXBuildFile; fileRef = EF0851AB16AAFFC300AB28E7 /* PGTableView.m */; };
+		EF0851AF16AB00C100AB28E7 /* PGRowRecord.m in Sources */ = {isa = PBXBuildFile; fileRef = EF0851AE16AB00C100AB28E7 /* PGRowRecord.m */; };
+		EF0851B116AB01F700AB28E7 /* Documentation.txt in Resources */ = {isa = PBXBuildFile; fileRef = EF0851B016AB01F700AB28E7 /* Documentation.txt */; };
+		EF0851B416AB0C0A00AB28E7 /* PGTableViewCell.m in Sources */ = {isa = PBXBuildFile; fileRef = EF0851B316AB0C0A00AB28E7 /* PGTableViewCell.m */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -39,6 +43,13 @@
 		EF08519D16AAFF9500AB28E7 /* PGViewController.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = PGViewController.m; sourceTree = "<group>"; };
 		EF0851A016AAFF9500AB28E7 /* en */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = en; path = en.lproj/PGViewController_iPhone.xib; sourceTree = "<group>"; };
 		EF0851A316AAFF9500AB28E7 /* en */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = en; path = en.lproj/PGViewController_iPad.xib; sourceTree = "<group>"; };
+		EF0851AA16AAFFC300AB28E7 /* PGTableView.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = PGTableView.h; sourceTree = "<group>"; };
+		EF0851AB16AAFFC300AB28E7 /* PGTableView.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = PGTableView.m; sourceTree = "<group>"; };
+		EF0851AD16AB00C100AB28E7 /* PGRowRecord.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = PGRowRecord.h; sourceTree = "<group>"; };
+		EF0851AE16AB00C100AB28E7 /* PGRowRecord.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = PGRowRecord.m; sourceTree = "<group>"; };
+		EF0851B016AB01F700AB28E7 /* Documentation.txt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = Documentation.txt; path = "Let's Build UITableView/Documentation.txt"; sourceTree = "<group>"; };
+		EF0851B216AB0C0A00AB28E7 /* PGTableViewCell.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = PGTableViewCell.h; sourceTree = "<group>"; };
+		EF0851B316AB0C0A00AB28E7 /* PGTableViewCell.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = PGTableViewCell.m; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -58,6 +69,7 @@
 		EF08517516AAFF9500AB28E7 = {
 			isa = PBXGroup;
 			children = (
+				EF0851B016AB01F700AB28E7 /* Documentation.txt */,
 				EF08518A16AAFF9500AB28E7 /* Let's Build UITableView */,
 				EF08518316AAFF9500AB28E7 /* Frameworks */,
 				EF08518116AAFF9500AB28E7 /* Products */,
@@ -85,12 +97,8 @@
 		EF08518A16AAFF9500AB28E7 /* Let's Build UITableView */ = {
 			isa = PBXGroup;
 			children = (
-				EF08519316AAFF9500AB28E7 /* PGAppDelegate.h */,
-				EF08519416AAFF9500AB28E7 /* PGAppDelegate.m */,
-				EF08519C16AAFF9500AB28E7 /* PGViewController.h */,
-				EF08519D16AAFF9500AB28E7 /* PGViewController.m */,
-				EF08519F16AAFF9500AB28E7 /* PGViewController_iPhone.xib */,
-				EF0851A216AAFF9500AB28E7 /* PGViewController_iPad.xib */,
+				EF0851B616AB135800AB28E7 /* PGTableView */,
+				EF0851B516AB133700AB28E7 /* Demo App */,
 				EF08518B16AAFF9500AB28E7 /* Supporting Files */,
 			);
 			path = "Let's Build UITableView";
@@ -108,6 +116,32 @@
 				EF08519A16AAFF9500AB28E7 /* Default-568h@2x.png */,
 			);
 			name = "Supporting Files";
+			sourceTree = "<group>";
+		};
+		EF0851B516AB133700AB28E7 /* Demo App */ = {
+			isa = PBXGroup;
+			children = (
+				EF08519316AAFF9500AB28E7 /* PGAppDelegate.h */,
+				EF08519416AAFF9500AB28E7 /* PGAppDelegate.m */,
+				EF08519C16AAFF9500AB28E7 /* PGViewController.h */,
+				EF08519D16AAFF9500AB28E7 /* PGViewController.m */,
+				EF08519F16AAFF9500AB28E7 /* PGViewController_iPhone.xib */,
+				EF0851A216AAFF9500AB28E7 /* PGViewController_iPad.xib */,
+			);
+			name = "Demo App";
+			sourceTree = "<group>";
+		};
+		EF0851B616AB135800AB28E7 /* PGTableView */ = {
+			isa = PBXGroup;
+			children = (
+				EF0851AA16AAFFC300AB28E7 /* PGTableView.h */,
+				EF0851AB16AAFFC300AB28E7 /* PGTableView.m */,
+				EF0851AD16AB00C100AB28E7 /* PGRowRecord.h */,
+				EF0851AE16AB00C100AB28E7 /* PGRowRecord.m */,
+				EF0851B216AB0C0A00AB28E7 /* PGTableViewCell.h */,
+				EF0851B316AB0C0A00AB28E7 /* PGTableViewCell.m */,
+			);
+			name = PGTableView;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -168,6 +202,7 @@
 				EF08519B16AAFF9500AB28E7 /* Default-568h@2x.png in Resources */,
 				EF0851A116AAFF9500AB28E7 /* PGViewController_iPhone.xib in Resources */,
 				EF0851A416AAFF9500AB28E7 /* PGViewController_iPad.xib in Resources */,
+				EF0851B116AB01F700AB28E7 /* Documentation.txt in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -181,6 +216,9 @@
 				EF08519116AAFF9500AB28E7 /* main.m in Sources */,
 				EF08519516AAFF9500AB28E7 /* PGAppDelegate.m in Sources */,
 				EF08519E16AAFF9500AB28E7 /* PGViewController.m in Sources */,
+				EF0851AC16AAFFC300AB28E7 /* PGTableView.m in Sources */,
+				EF0851AF16AB00C100AB28E7 /* PGRowRecord.m in Sources */,
+				EF0851B416AB0C0A00AB28E7 /* PGTableViewCell.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

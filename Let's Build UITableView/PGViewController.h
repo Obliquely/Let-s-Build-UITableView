@@ -7,7 +7,8 @@
 //
 
 #import <UIKit/UIKit.h>
+#import "PGTableView.h"
 
-@interface PGViewController : UIViewController
+@interface PGViewController : UIViewController<PGTableViewDataSource, PGTableViewDelegate>
 
 @end

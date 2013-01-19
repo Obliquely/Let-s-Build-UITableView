@@ -1,0 +1,62 @@
+# Let's Build UITableView #
+
+UITableView - and it's OS X counsin NSTableView - is a very powerful class that can save a huge amount of developer effort. While it is pretty easy to use, having some undertanding of how it does its behind the scenes work can be helpful. And it can also help make sense of the range of calls that are made to the delegate and data source and in what conditions. For example, UITableView asks every row to return a new height every time it does a reload. Something you really need to know if you have a lot of rows and you need to do anything but non-trivial work to calculate their heights.
+
+UITableView levers a great deal of its power from UIScrollView. Taking that as a given, building a basic version of UITableView is not all that hard. Before diving into code, consider two of key jobs that need to get done by the class.
+    
+    *   We'll want a pool of reusable views that we can use for displaying rows. The idea here is that we can have, say, a table with a 1000 rows but get the performance (both memory and processor time) of a table of 10 rows. How is this done? Well, the table view only needs actual views for the parts of the table that are visible. Typically this is a fairly small number. And, in any case, it's reliably much, much smaller than 1000.
+    
+    *   We'll need to know the starting position and height of each row and we'll need this information before we attempt any layout at all. We need this for at least two reasons:
+    
+        *   First,  we need to know how tall the table is. This is so we can tell the scroll view what the size of its content and, thus, ensure that scroll bars are the right size, that when we get to the bottom of the table we get the pleasing elastic band effect, and so on.
+    
+        *   Second, whenever the scroll view moves, we need to know whether we have to reposition some of our reusable views and whether we need to refresh their contents.
+        
+The reusable queue is very simply to implement, so we'll do that first. The mechanism for coordinating rows, their offsets and their contents, is only a little trickier. We'll do that second and build it up by stages.
+
+UITableView keeps a pool (or queue) of reusable views, with each view representing a single row of the table. Often every row of the table is similar but sometimes tables have different types of rows. So UITableView asks you to specify a re-use identifier when working with the pool of re-usable views. A re-use identifier is an NSString and that is passed to the UITableView method dequeueReusableCellWithIdentifier:.
+
+The dequeueReusableCellWithIdentifier: asks the UITableView to return a view. With a fresh UITableView the pool will be empty and the method will return nil. But once a UITableView is up and running, it has views in its pool. And if any aren't being used and if their re-use identifer matches that specifided in the dequeueReusableCellWithIdentifier: call, then this view is returned.
+
+If you've used UITableView at all, you'll be familiar with the standard pattern for using dequeueReusableCellWithIdentifier:. In the tableView's data source, you implement the tableView:cellForRowAtIndexPath: method to return a view to represent a given row of your table. At the start of the method, you either grab a view from the pool or make a new one. Then you populate the view with data for the row. Typical codes looks like this:
+
+- (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath
+{
+    UITableViewCell* cell = [tableView dequeueReusableCellWithIdentifier:CellForDocumentList];
+
+    if (cell == nil)
+    {
+        cell = [[UITableViewCell alloc] initWithStyle: UITableViewCellStyleDefault reuseIdentifier: @"standardRow"];
+        [cell autorelease];
+    }
+
+    [self populateCell: cell forIndexPath: indexPath];
+
+    return cell;
+}
+
+OK, so let's make a start on implement the dequeueReusableCellWithIdentifier: method. Implementing the method itself is laughably simple.
+
+- (PGTableViewCell*) dequeueReusableCellWithIdentifier: (NSString*) reuseIdentifier;
+{
+    for (PGTableViewCell* tableViewCell in [self reusePool])
+    {
+        if ([[tableViewCell reuseIdentifier] isEqualToString: reuseIdentifier])
+        {
+            return tableViewCell;
+        }
+    }
+    return nil;
+}
+
+In my implementation the reusePool property is an NSMutableArray. And the PGTableViewCell is simply a subclass of UIView that has one additional property, an NSString called reuseIdentifier.
+
+The method assumes that anything in that is in the reusePool is available, i.e it not currently being used to display a visible row. Of course, for the method to be actually useful, we will need to make sure that relevant views are added to it. That is, we'll need to work out when a row is moved off screen and, at that point, add it to the reuse pool. We'll get to that in a moment.
+
+
+
+
+
+
+    
+    
