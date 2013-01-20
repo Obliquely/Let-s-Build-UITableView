@@ -15,6 +15,7 @@
 @property (nonatomic, retain) NSArray* rowRecords;
 @property (nonatomic, retain) NSMutableSet* reusePool;
 @property (nonatomic, retain) NSMutableSet* visibleRows;
+
 @end
 
 @implementation PGTableView
@@ -39,7 +40,7 @@
     self = [super initWithCoder: aDecoder];
     if (self)
     {
-        [self setup]; // called if xib created
+        [self setup]; // called if created by a xib file
     }
     return self;
 }
@@ -134,7 +135,15 @@
         rowToDisplay++;
     }
     while (yOrigin + rowHeight < currentEndY && rowToDisplay < [[self rowRecords] count]);
+
+    [self freeUpAnyNonVisibleRows: currentVisibleRows];
     
+    NSLog(@"Pool size: %d", [[self reusePool] count]);
+}
+
+
+- (void) freeUpAnyNonVisibleRows: (NSMutableSet*) currentVisibleRows;
+{
     NSMutableSet* interimSet = [[self visibleRows] retain];
     [self setVisibleRows: currentVisibleRows];
     
@@ -154,7 +163,6 @@
     
     [interimSet release];
 }
-
 
 - (void) generateHeightAndOffsetData;
 {

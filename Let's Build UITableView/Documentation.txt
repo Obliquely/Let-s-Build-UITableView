@@ -49,3 +49,13 @@ OK, so let's make a start on implement the dequeueReusableCellWithIdentifier: me
 In my implementation the reusePool property is an NSMutableArray. And the PGTableViewCell is simply a subclass of UIView that has one additional property, an NSString called reuseIdentifier.
 
 The method assumes that anything in that is in the reusePool is available, i.e it not currently being used to display a visible row. Of course, for the method to be actually useful, we will need to make sure that relevant views are added to it. That is, we'll need to work out when a row is moved off screen and, at that point, add it to the reuse pool. We'll get to that in a moment.
+
+Short Paragraph
+
+Another Short One
+
+Third Short One
+
+Fourth Short One
+
+Fifth Not Long One
