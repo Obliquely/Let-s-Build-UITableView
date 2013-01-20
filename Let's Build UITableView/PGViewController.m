@@ -183,7 +183,12 @@
 }
 
 
+#pragma mark - rotation
 
+- (void) didRotateFromInterfaceOrientation:(UIInterfaceOrientation)fromInterfaceOrientation
+{
+    [[self pgTableView] reloadData];
+}
 
 
 #pragma mark - service methods
@@ -195,7 +200,7 @@
     
     NSArray* sampleRows = [superString componentsSeparatedByString:@"\n\n"];
     [self setTableRows: sampleRows];
-
+    [superString release];
 }
 
 
@@ -203,20 +208,21 @@
 {
     UIBarButtonItem* refresh = [[UIBarButtonItem alloc] initWithBarButtonSystemItem: UIBarButtonSystemItemRefresh target: self action: @selector(refresh)];
     
-    UIBarButtonItem* test = [[UIBarButtonItem alloc] initWithTitle: @"Run Test" style: UIBarButtonItemStyleBordered target: self action:@selector(runTest)];
+    UIBarButtonItem* test = [[UIBarButtonItem alloc] initWithTitle: @"Test" style: UIBarButtonItemStyleBordered target: self action:@selector(runTest)];
     
     UIBarButtonItem* foot = [[UIBarButtonItem alloc] initWithTitle: @"⬇" style: UIBarButtonItemStylePlain target: self action:@selector(gotoFoot)];
     
-    UIBarButtonItem* heightTweak = [[UIBarButtonItem alloc] initWithTitle: @"Grow Row" style: UIBarButtonItemStyleBordered target:  self action:@selector(growRow)];
+    UIBarButtonItem* heightTweak = [[UIBarButtonItem alloc] initWithTitle: @"Grow" style: UIBarButtonItemStyleBordered target:  self action:@selector(growRow)];
     
     UIBarButtonItem* flexibleSpace1 = [[UIBarButtonItem alloc] initWithBarButtonSystemItem: UIBarButtonSystemItemFlexibleSpace target:nil action:nil];
     UIBarButtonItem* flexibleSpace2 = [[UIBarButtonItem alloc] initWithBarButtonSystemItem: UIBarButtonSystemItemFlexibleSpace target:nil action:nil];
     
-    [self setToolbarItems: [NSArray arrayWithObjects: refresh, heightTweak, flexibleSpace1, foot, flexibleSpace2, test, nil]];
+    [self setToolbarItems: [NSArray arrayWithObjects: refresh, flexibleSpace1, foot, flexibleSpace2, heightTweak, test, nil]];
     
     [foot release];
     [heightTweak release];
     [test release];
+    [refresh release];
     [flexibleSpace1 release];
     [flexibleSpace2 release];
     
