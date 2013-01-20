@@ -28,8 +28,15 @@
     } else {
         self.viewController = [[[PGViewController alloc] initWithNibName:@"PGViewController_iPad" bundle:nil] autorelease];
     }
-    self.window.rootViewController = self.viewController;
+    
+    
+    UINavigationController* navigationController = [[UINavigationController alloc] init];
+    [navigationController pushViewController: [self viewController] animated: NO];
+    
+    self.window.rootViewController = navigationController;
     [self.window makeKeyAndVisible];
+    
+    [navigationController release];
     return YES;
 }
 

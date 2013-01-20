@@ -14,50 +14,187 @@
 
 @property (nonatomic, retain) NSArray* rowRecords;
 @property (nonatomic, retain) NSMutableSet* reusePool;
-@property (nonatomic, retain) NSMutableSet* visibleCells;
+@property (nonatomic, retain) NSMutableSet* visibleRows;
 @end
 
 @implementation PGTableView
 
 @synthesize reusePool = _pgReusePool;
-@synthesize visibleCells = _pgVisibleCells;
+@synthesize visibleRows = _pgVisibleRows;
 @synthesize rowRecords = _pgRowRecords;
 
+#pragma mark - init and dealloc
 
 - (void) dealloc;
 {
     [_pgReusePool release];
-    [_pgVisibleCells release];
+    [_pgVisibleRows release];
     [_pgRowRecords release];
     [super dealloc];
 }
 
 
-- (id)initWithFrame:(CGRect)frame
+- (id) initWithCoder:(NSCoder *)aDecoder;
 {
-    self = [super initWithFrame:frame];
+    self = [super initWithCoder: aDecoder];
     if (self)
     {
-        [self setRowHeight: 40.0];  // default value for row height
+        [self setup]; // called if xib created
     }
     return self;
 }
 
-- (id) init;
+
+- (id) initWithFrame:(CGRect)frame
 {
-    
-    self = [super init];
+    self = [super initWithFrame:frame];
     if (self)
     {
-        [self setRowHeight: 40.0];  // default value for row height
+        [self setup];   // called if programmatically created
     }
     return self;
+}
+
+
+#pragma mark - public methods
+
+- (PGTableViewCell*) dequeueReusableCellWithIdentifier: (NSString*) reuseIdentifier;
+{
+    PGTableViewCell* poolCell = nil;
+    
+    for (PGTableViewCell* tableViewCell in [self reusePool])
+    {
+        if ([[tableViewCell reuseIdentifier] isEqualToString: reuseIdentifier])
+        {
+            poolCell = tableViewCell;
+            break;
+        }
+    }
+    
+    if (poolCell)
+    {
+        [poolCell retain];
+        [[self reusePool] removeObject: poolCell];
+        return [poolCell autorelease];
+    }
+
+    return nil;
+}
+
+
+- (void) reloadData;
+{
+    [self generateHeightAndOffsetData];
+    [self layoutTableRows];
+}
+
+
+#pragma mark - scrollView overrides
+
+- (void) setContentOffset:(CGPoint)contentOffset; //  note: this method called frequently - needs to be fast
+{
+    [super setContentOffset: contentOffset];
+    [self layoutTableRows];
+}
+
+
+#pragma mark - layout the table rows
+
+- (void) layoutTableRows;
+{
+    if ([self layoutTableRowsBailCheck]) return;
+    
+    CGFloat currentStartY = [self contentOffset].y;
+    CGFloat currentEndY = currentStartY + [self frame].size.height;
+    
+    NSInteger rowToDisplay = [self findRowForOffsetY: currentStartY inRange: NSMakeRange(0, [[self rowRecords] count])];
+   
+    NSMutableSet* currentVisibleRows = [NSMutableSet set];
+    
+    CGFloat yOrigin;
+    CGFloat rowHeight;
+    do
+    {
+        [currentVisibleRows addObject: [NSNumber numberWithInteger: rowToDisplay]];
+        
+        PGTableViewCell* cell = [self cachedCellForRow: rowToDisplay];
+        
+        if (!cell)
+        {
+            cell = [[self dataSource] pgTableView: self cellForRow: rowToDisplay];
+            [self setCachedCell: cell forRow: rowToDisplay];
+            
+            yOrigin = [self startPositionYForRow: rowToDisplay];
+            rowHeight = [self heightForRow: rowToDisplay];
+            
+            [cell setFrame: CGRectMake(0.0, yOrigin, [self bounds].size.width, rowHeight)];
+            [self addSubview: cell];
+        }
+        
+        rowToDisplay++;
+    }
+    while (yOrigin + rowHeight < currentEndY && rowToDisplay < [[self rowRecords] count]);
+    
+    NSMutableSet* interimSet = [[self visibleRows] retain];
+    [self setVisibleRows: currentVisibleRows];
+    
+    [interimSet minusSet: currentVisibleRows];  // interimSet now represents the ceased to be visible rows
+    
+    for (NSNumber* rowNumber in interimSet)
+    {
+        NSInteger row = [rowNumber integerValue];
+        PGTableViewCell* tableViewCell = [self cachedCellForRow: row];
+        if (tableViewCell)
+        {
+            [[self reusePool] addObject: tableViewCell];
+            [tableViewCell removeFromSuperview];
+            [self setCachedCell: nil forRow: row];
+        }
+    }
+    
+    [interimSet release];
+}
+
+
+- (void) generateHeightAndOffsetData;
+{
+    CGFloat topMargin = 2.0;
+    CGFloat bottomMargin = 0.0;
+    
+    CGFloat currentOffsetY = 0.0;
+    
+    BOOL checkHeightForEachRow = [[self delegate] respondsToSelector: @selector(pgTableView:heightForRow:)];
+    
+    NSMutableArray* rowRecords = [NSMutableArray array];
+    
+    NSInteger numberOfRows = [[self dataSource] numberOfRowsInTableView: self];
+
+    for (NSInteger row = 0; row < numberOfRows; row++)
+    {
+        PGRowRecord* rowRecord = [[PGRowRecord alloc] init];
+        CGFloat rowHeight = checkHeightForEachRow ? [[self delegate] pgTableView: self heightForRow: row] : [self rowHeight];
+        
+        [rowRecord setHeight: rowHeight + topMargin + bottomMargin];
+        [rowRecord setStartPositionY: currentOffsetY + topMargin];
+        
+        [rowRecords insertObject: rowRecord atIndex: row];
+        [rowRecord release];
+        
+        currentOffsetY = currentOffsetY + rowHeight + topMargin + bottomMargin;
+    }
+    
+    [self setRowRecords: [[rowRecords copy] autorelease]];
+    
+    [self setContentSize: CGSizeMake([self bounds].size.width,  currentOffsetY)];
 }
 
 
 - (NSInteger) findRowForOffsetY: (CGFloat) yPosition inRange: (NSRange) range;
 {
-    if (range.length < 2) return range.location;
+    if (range.length < 2)
+    {
+        return (range.location<1) ? range.location : range.location - 1;
+    }
     
     NSInteger halfwayMark = range.length / 2;
     
@@ -71,38 +208,9 @@
     }
 }
 
-- (NSMutableSet*) reusePool;
-{
-    if (!_pgReusePool)
-    {
-        _pgReusePool = [[NSMutableSet alloc] init];
-    }
-
-    return _pgReusePool;
-}
-
-- (NSMutableSet*) visibleCells;
-{
-    if (_pgVisibleCells)
-    {
-        _pgVisibleCells = [[NSMutableSet alloc] init];
-    }
-
-    return _pgVisibleCells;
-}
 
 
-- (PGTableViewCell*) dequeueReusableCellWithIdentifier: (NSString*) reuseIdentifier;
-{
-    for (PGTableViewCell* tableViewCell in [self reusePool])
-    {
-        if ([[tableViewCell reuseIdentifier] isEqualToString: reuseIdentifier])
-        {
-            return tableViewCell;
-        }
-    }
-    return nil;
-}
+#pragma mark - query internal cache of positions and heights
 
 - (CGFloat) startPositionYForRow: (NSInteger) row;
 {
@@ -114,75 +222,59 @@
     return [(PGRowRecord*)[[self rowRecords] objectAtIndex: row] height];
 }
 
-
-- (void) reloadData;
+- (PGTableViewCell*) cachedCellForRow: (NSInteger) row;
 {
-    NSInteger numberOfRows = [[self dataSource] numberOfRowsInTableView: self];
+    return [(PGRowRecord*)[[self rowRecords] objectAtIndex: row] cachedCell];
+}
 
-    [self getHeightsWithRowCount: numberOfRows];
-    
-    CGFloat currentStartY = [self contentOffset].y;
-    CGFloat currentEndY = currentStartY + [self frame].size.height;
-    
-    NSInteger rowToDisplay = [self findRowForOffsetY: currentStartY inRange: NSMakeRange(0, numberOfRows)];
-    
-    PGTableViewCell* currentCell = nil;
-    
-    [[self reusePool] unionSet: [self visibleCells]];
-    [[self visibleCells] removeAllObjects];
-    
-    NSLog(@"data source: %@; delegate: %@", [self dataSource], [self delegate]);
-    
-    if (![[self dataSource] respondsToSelector:@selector(pgTableView:cellForRow:)])
-    {
-        NSAssert(NO, @"datasource must respond to pgTableView:cellForRow:");
-    }
-
-    
-    do {
-        PGTableViewCell* cell = [[self dataSource] pgTableView: self cellForRow: rowToDisplay];
-
-        CGFloat yOrigin = [self startPositionYForRow: rowToDisplay];
-        CGFloat rowHeight = [self heightForRow: rowToDisplay];
-
-        [cell setFrame: CGRectMake(0.0, yOrigin, [self bounds].size.width, rowHeight)];
-        
-        [[self reusePool] removeObject: cell];
-        [[self visibleCells] addObject: cell];
-        
-        [self addSubview: cell];
-    } while (currentCell.frame.origin.y + currentCell.frame.size.height < currentEndY);
-
+- (void) setCachedCell: (PGTableViewCell*) cell forRow: (NSInteger) row;
+{
+    [(PGRowRecord*)[[self rowRecords] objectAtIndex: row] setCachedCell: cell];
 }
 
 
-- (void) getHeightsWithRowCount: (NSInteger) numberOfRows;
+#pragma mark - service methods
+
+- (BOOL) layoutTableRowsBailCheck;
 {
-    CGFloat currentOffsetY = 0.0;
+    if (![self dataSource]) return YES; // don't attempt layout if no data source
+    if (![self rowRecords]) return YES; // don't attempt layout if we have no row records
     
-    BOOL checkHeightForEachRow = [[self delegate] respondsToSelector: @selector(pgTableView:heightForRow:)];
-    
-    NSMutableArray* rowRecords = [[NSMutableArray alloc] init];
-    for (NSInteger row = 0; row < numberOfRows; row++)
+    if (![[self dataSource] respondsToSelector:@selector(pgTableView:cellForRow:)])
     {
-        PGRowRecord* rowRecord = [[PGRowRecord alloc] init];
-        CGFloat rowHeight = checkHeightForEachRow ? [[self delegate] pgTableView: self heightForRow: row] : [self rowHeight];
-        
-        [rowRecord setHeight: rowHeight];
-        [rowRecord setStartPositionY: currentOffsetY];
-        
-        [rowRecords insertObject: rowRecord atIndex: row];
-        [rowRecord release];
-        
-        currentOffsetY = currentOffsetY + rowHeight;
+        NSLog(@"** WARNING ** PGTableView dataSource, %@, does not response to pgTableView:cellForRow: - table view will not work without a conforming data source", [self dataSource]);
+        return YES;
     }
     
-    [self setRowRecords: [[rowRecords copy] autorelease]];
-    [rowRecords release];
+    return NO; // safe to proceed
+}
+
+- (void) setup;
+{
+    [self setRowHeight: 40.0];  // default value for row height
+}
+
+
+#pragma mark - lazy instantiation
+
+- (NSMutableSet*) reusePool;
+{
+    if (!_pgReusePool)
+    {
+        _pgReusePool = [[NSMutableSet alloc] init];
+    }
     
-    CGSize contentSize = CGSizeMake([self bounds].size.width,  currentOffsetY);
-    NSLog(@"contentSize: %@", NSStringFromCGSize(contentSize));
-    [self setContentSize: contentSize];
+    return _pgReusePool;
+}
+
+- (NSMutableSet*) visibleRows;
+{
+    if (!_pgVisibleRows)
+    {
+        _pgVisibleRows = [[NSMutableSet alloc] init];
+    }
+    
+    return _pgVisibleRows;
 }
 
 @end

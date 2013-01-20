@@ -16,6 +16,7 @@
     if (self)
     {
         [self setReuseIdentifier: reuseIdentifier];
+        [self setBackgroundColor: [UIColor lightGrayColor]];
     }
     return self;
 }

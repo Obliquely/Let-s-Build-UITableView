@@ -7,10 +7,12 @@
 //
 
 #import <Foundation/Foundation.h>
+@class PGTableViewCell;
 
 @interface PGRowRecord : NSObject
 
 @property (nonatomic) CGFloat startPositionY;
 @property (nonatomic) CGFloat height;
+@property (nonatomic, retain) PGTableViewCell* cachedCell;
 
 @end
