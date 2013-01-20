@@ -61,6 +61,8 @@
 
 - (PGTableViewCell*) dequeueReusableCellWithIdentifier: (NSString*) reuseIdentifier;
 {
+    NSLog(@"dequeueReusableCellWithIdentifier: '%@'", reuseIdentifier);
+    
     PGTableViewCell* poolCell = nil;
     
     for (PGTableViewCell* tableViewCell in [self reusePool])
@@ -74,11 +76,16 @@
     
     if (poolCell)
     {
+
         [poolCell retain];
         [[self reusePool] removeObject: poolCell];
+        
+        NSLog(@"dequeueReusableCellWithIdentifier returning a pool cell. Pool now has %d entries", [[self reusePool] count]);
+        
         return [poolCell autorelease];
     }
 
+    NSLog(@"dequeueReusableCellWithIdentifier returning nil. Pool now has %d entries", [[self reusePool] count]);
     return nil;
 }
 
@@ -118,16 +125,16 @@
     {
         [currentVisibleRows addObject: [NSNumber numberWithInteger: rowToDisplay]];
         
+        yOrigin = [self startPositionYForRow: rowToDisplay];
+        rowHeight = [self heightForRow: rowToDisplay];
+        
         PGTableViewCell* cell = [self cachedCellForRow: rowToDisplay];
         
         if (!cell)
         {
             cell = [[self dataSource] pgTableView: self cellForRow: rowToDisplay];
             [self setCachedCell: cell forRow: rowToDisplay];
-            
-            yOrigin = [self startPositionYForRow: rowToDisplay];
-            rowHeight = [self heightForRow: rowToDisplay];
-            
+      
             [cell setFrame: CGRectMake(0.0, yOrigin, [self bounds].size.width, rowHeight)];
             [self addSubview: cell];
         }
@@ -137,8 +144,6 @@
     while (yOrigin + rowHeight < currentEndY && rowToDisplay < [[self rowRecords] count]);
 
     [self freeUpAnyNonVisibleRows: currentVisibleRows];
-    
-    NSLog(@"Pool size: %d", [[self reusePool] count]);
 }
 
 
