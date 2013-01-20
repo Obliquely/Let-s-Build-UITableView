@@ -21,5 +21,11 @@
     return self;
 }
 
+//- (void) setFrame:(CGRect)frame;
+//{
+//    [super setFrame: frame];
+//    
+//    [[self viewWithTag: 101] setFrame: frame];
+//}
 
 @end

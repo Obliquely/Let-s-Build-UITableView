@@ -26,10 +26,19 @@
 @property (nonatomic, assign) IBOutlet id<PGTableViewDataSource> dataSource;
 @property (nonatomic, assign) IBOutlet id<PGTableViewDelegate> delegate;
 
-@property (nonatomic) CGFloat rowHeight; // will return the default value if unset
+@property (nonatomic) CGFloat rowHeight; // default to 40.0 - ignored if delegate responds to pgTableView:heightForRow:
+@property (nonatomic) CGFloat rowMargin; // default to 2.0
 
 - (PGTableViewCell*) dequeueReusableCellWithIdentifier: (NSString*) reuseIdentifier;
 - (void) reloadData;
+
+- (void) row: (NSInteger) row changedHeight: (CGFloat) height;  // change height of one row w/o triggering request for row heights
+
+- (NSIndexSet*) indexSetOfVisibleRows;
+
+// exposed here so we can run test measurements - but not part of public interface
+- (NSInteger) findRowForOffsetY: (CGFloat) yPosition inRange: (NSRange) range;
+- (NSInteger) inefficientFindRowForOffsetY: (CGFloat) yPosition inRange: (NSRange) range;
 
 @end
 
@@ -37,7 +46,7 @@
 @protocol PGTableViewDataSource<NSObject>
 
 @required
-- (NSInteger) numberOfRowsInTableView: (PGTableView*) tableView;
+- (NSInteger) numberOfRowsInPgTableView: (PGTableView*) tableView;
 - (PGTableViewCell*) pgTableView:(PGTableView *)pgTableView cellForRow: (NSInteger) row;
 
 @end

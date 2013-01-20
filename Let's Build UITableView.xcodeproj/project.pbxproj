@@ -343,6 +343,7 @@
 				EF0851A916AAFF9500AB28E7 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
 	};
