@@ -1,30 +1,30 @@
 # Let's Build UITableView #
 
-`UITableView` is a powerful and full featured class, but its internal workings can seem a bit mysterious. Most of the time use of the class is straightforward: in return for following the prescribed practice in the documentation, the developer gets a responsive scrolling table that is frugal with memory even when the row count is high. But when pushing the class hard, for example with large tables where each row may have a different and varying height, it helps to have a deeper understanding of how the class works.
+`UITableView` is a powerful and full featured class, but its internal workings can seem mysterious. Most of the time use of the class is straightforward: in return for following the prescribed practice in the documentation, the developer gets a responsive scrolling table that is frugal with memory even when the row count is high. But when pushing the class hard, for example with large tables where each row may have a different and varying height, it helps to have a deeper understanding of how the class works.
 
-In this article, I am going to implement a basic version of a table view class. This will remove any lurking mystery as to how it works its magic, and also show  just why `UITableView` asks what it does - and when - of its data source and delegate.
+In this article, I am going to implement a basic version of a table view class. This will show the class works its magic and also show just why `UITableView` asks what it does - and when - of its data source and delegate.
 
 ## Implementation Strategy ##
 
-`UITableView` is a subclass of `UIScrollView` and, with the power of that class in place, it take only a little work to implement a basic version of a table view. Before diving into code, consider two key tasks needed to keep performance high and memory usage low.
+`UITableView` is a subclass of `UIScrollView` and, with the power of that class in place, it takes only a little work to implement a basic version of a table view. Before diving into code, consider two key tasks needed to keep performance high and memory usage low.
 
-a)   The table view is going to need a pool of reusable views for displaying the rows in our table. Why is this?
+a) The table view is going to need a pool of reusable views for displaying the rows in the table. Why is this?
 
-*   Consider a table with, say, a 1000 rows. To the user, it looks as if there are a 1000 views all neatly stacked up one upon the other. Although building views is fast and modern devices do have a lot of memory, if the table view has to build and store a 1000 views, there is serious risk of a performance hit. It might mean, for example, that there's a nasty lag before the table first appears. Not good.
+*   Consider a table with, say, a 1000 rows. To the user, it looks as if there are a 1000 views all neatly stacked  one upon the other. Although building views is fast and modern devices do have a lot of memory, if the table view has to build and store a 1000 views, there is serious risk of a performance hit. It might mean, for example, that there's a nasty lag before the table first appears. Not good.
     
-*   Fortunately, the table view does not need to take this approach. It only needs to behave *as if* it has a 1000 neatly stacked views. In fact, the table view only needs actual views for the rows in the table that are visible at any given time. Typically this is a fairly small number. And, in any case, it's reliably much smaller than a 1000. To make the illusion work, the table view just needs to move the small pool of views around, so they appear in the part of the scroll view that is visible to the user, and to make sure their contents are updated according to the row they are currently representing.
+*   Fortunately, the table view does not need to take this approach. It only needs to behave *as if* it has a 1000 neatly stacked views. In fact, the table view only needs actual views for the rows in the table that are visible at any given time. Typically this is a fairly small number. And, in any case, it's reliably much smaller than a 1000. To make the illusion work, the table view just needs to move a few views around, so they appear in the part of the scroll view that is visible to the user. Then it has to make sure their contents are updated according to the row they are currently representing. Recycling views from a pool, rather than making new views each time they are needed, ensures things happen fast enough for smooth scrolling even on older iOS devices.
 
 b) The table view is also going to need to know the starting position and height of each row in the table. And, critically, it will need this information before it attempts any layout at all. Why is this?
 
-*   First, it needs to know how tall the table is so it can tell the scroll view the size of its contents and, thus, ensure that scroll bars are the right size, that when the user gets to the bottom of the table they experience the pleasing elastic band effect, and so on.
+*   First, it needs to know how tall the table is so it can tell the scroll view the size of its contents and, thus, ensure that the scroll bars are the right size, that when the user gets to the bottom of the table they experience the pleasing elastic band effect, and so on.
 
-*   Second, whenever the scroll view moves, the table view needs to figure out whether it has to reposition some of its reusable views and whether it needs to refresh their contents.
+*   Second, whenever the scroll view moves, the table view needs to figure out how to reposition its reusable views and whether it needs to refresh their contents.
     
 It turns out that the reusable pool is very simple to implement, so we'll do that first. The mechanism for coordinating rows, their offsets and their contents, is only a little trickier. We'll do that second and build it up by stages.
 
 ## A Reusable Pool of Views ##
 
-`UITableView` keeps a pool of reusable views, Apple calls it a queue, with each view representing a single row of the table. Often every row of the table is similar but sometimes tables have different types of rows. So `UITableView` asks its data source to specify a reuse identifier when working with the pool of reusable views. A reuse identifier is an `NSString` and that is passed to the `UITableView` method `dequeueReusableCellWithIdentifier:`.
+`UITableView` keeps a pool of reusable views, Apple calls it a queue, with each view representing a single row of the table. Often every row of the table is similar but sometimes tables have different types of rows. So `UITableView` asks its data source to specify a reuse identifier when working with the pool of reusable views. A reuse identifier is an `NSString` that is passed to the `UITableView` method `dequeueReusableCellWithIdentifier:`.
 
 The `dequeueReusableCellWithIdentifier:` method asks the `UITableView` to return a view. With a fresh `UITableView` the pool will be empty and the method will return nil. But once a `UITableView` is up and running, it may well have views in its pool. If it does and if their reuse identifier matches that specified in the `dequeueReusableCellWithIdentifier:` call, then this view is returned.
 
@@ -38,6 +38,7 @@ If you've used `UITableView` at all, you'll be familiar with the standard patter
             cell = [[UITableViewCell alloc] initWithStyle: UITableViewCellStyleDefault reuseIdentifier: @"standardRow"];
             [cell autorelease];
         }
+        
         [self populateCell: cell forIndexPath: indexPath];
         return cell;
     }
@@ -47,6 +48,7 @@ OK, so let's implement `dequeueReusableCellWithIdentifier:`.
     - (PGTableViewCell*) dequeueReusableCellWithIdentifier: (NSString*) reuseIdentifier;
     {
         PGTableViewCell* poolCell = nil;
+        
         for (PGTableViewCell* tableViewCell in [self reusePool])
         {
             if ([[tableViewCell reuseIdentifier] isEqualToString: reuseIdentifier])
@@ -55,53 +57,54 @@ OK, so let's implement `dequeueReusableCellWithIdentifier:`.
                 break;
             }
         }
+        
         if (poolCell)
         {
             [poolCell retain];
             [[self reusePool] removeObject: poolCell];
             [poolCell autorelease];
         }
+        
         return poolCell;
     }
 
 In this implementation the reusePool property is an `NSMutableArray`. And a `PGTableViewCell` is simply a subclass of `UIView` that has one additional property, an `NSString` called reuseIdentifier. The real `UITableViewCell` has lots of extra functionality, but this property is all that's needed for our basic implementation.
 
-The method assumes that any view in reusePool is available, i.e it is not currently being used to display a visible row. Of course, for the method to be actually useful, the table view will need to make sure that relevant views are added to it. That is, it'll need to work out when a row is moved off screen and, at that point, add it to the reuse pool.
+The method assumes that any view in reusePool is available, i.e it is not currently being used to display a visible row. Of course, for the method to do its job, the table view will need to make sure that relevant views are added to it. That is, it'll need to work out when a row is moved off screen and, at that point, add it to the reuse pool.
 
 ## Gathering Height and Vertical Offset Data ##
 
-`UITableView` cheerfully copes with fixed and variable row widths and our basic implementation will be no different.  If the delegate responds to the `tableView:heightForRowAtIndexPath:` method, then a `UITableView` will ask the delegate for the height of every row. It gets to know about the number of rows in the table by asking the data source using the `tableView:numberOfRowsInSection:` method (which is required) and the optional `numberOfSectionsInTableView:` method. (If this method isn't implemented, the table view assumes you have just one section.)
+`UITableView` cheerfully copes with fixed and variable row heights and our basic implementation will be no different.  If the delegate responds to the `tableView:heightForRowAtIndexPath:` method, then a `UITableView` will ask the delegate for the height of every row. It gets to know about the number of rows in the table by asking the data source using the `tableView:numberOfRowsInSection:` method (which is required) and the optional `numberOfSectionsInTableView:` method. (If this method isn't implemented, the table view assumes you have just one section.)
 
 For our implementation, we will simplify a little. Our table will not have any sections, so we just need to learn about the number of rows. We'll require our data source to implement `numberOfRowsInPgTableView`. And, following Apple, we'll offer an optional `pgTableView:heightForRow:` method as part of the delegate protocol.
 
-    
     - (void) generateHeightAndOffsetData;
     {
         CGFloat currentOffsetY = 0.0;
-    
+        
         BOOL checkHeightForEachRow = [[self delegate] respondsToSelector: @selector(pgTableView:heightForRow:)];
-    
+        
         NSMutableArray* newRowRecords = [NSMutableArray array];
-    
-        NSInteger numberOfRows = [[self dataSource] numberOfRowsInTableView: self];
+        
+        NSInteger numberOfRows = [[self dataSource] numberOfRowsInPgTableView: self];
 
         for (NSInteger row = 0; row < numberOfRows; row++)
         {
             PGRowRecord* rowRecord = [[PGRowRecord alloc] init];
-        
+            
             CGFloat rowHeight = checkHeightForEachRow ? [[self delegate] pgTableView: self heightForRow: row] : [self rowHeight];
-        
-        [rowRecord setHeight: rowHeight + _pgRowMargin];
-        [rowRecord setStartPositionY: currentOffsetY + _pgRowMargin];
-        
-        [newRowRecords insertObject: rowRecord atIndex: row];
-        [rowRecord release];
-        
-        currentOffsetY = currentOffsetY + rowHeight + _pgRowMargin;
+            
+            [rowRecord setHeight: rowHeight + _pgRowMargin];
+            [rowRecord setStartPositionY: currentOffsetY + _pgRowMargin];
+            
+            [newRowRecords insertObject: rowRecord atIndex: row];
+            [rowRecord release];
+            
+            currentOffsetY = currentOffsetY + rowHeight + _pgRowMargin;
         }
-    
+        
         [self setRowRecords: newRowRecords];
-    
+        
         [self setContentSize: CGSizeMake([self bounds].size.width,  currentOffsetY)];
     }
 
@@ -113,41 +116,45 @@ Arguably, there is room for greater efficiency here. The height of a given row c
 
 ## Laying Out the Rows ##
 
-Having gathered start position and heights, the work of laying out the views is straightforward. The table view fetches its `contentOffset`, a property of the `UIScrollView` that indicates the start of the visible section of the view. It then figures out which rows need to be shown, stepping forward one row at a time until the visible section of the view is filled up.
+Having gathered start positions and heights, the work of laying out the views is straightforward. The table view fetches its `contentOffset`, a property of the `UIScrollView` that indicates the start of the visible section of the view. It then figures out the first row that needs to be shown, stepping forward one row at a time until the visible section of the view is filled up.
 
-The only complexity here is keeping careful track of which rows are displayed so we can then check to see if any that were previously visible have now gone. In that case, we'll want to put them back in the pool for reuse. The `returnNonVisibleRowsToThePool:` method will do this work if required.
+The only complexity here is keeping careful track of which rows are displayed so the table view can then check to see if any that were previously visible have now gone. In that case, it will want to put them back in the pool for reuse. The `returnNonVisibleRowsToThePool:` method will do this work if required.
 
     - (void) layoutTableRows;
     {
         CGFloat currentStartY = [self contentOffset].y;
         CGFloat currentEndY = currentStartY + [self frame].size.height;
+        
         NSInteger rowToDisplay = [self findRowForOffsetY: currentStartY inRange: NSMakeRange(0, [[self rowRecords] count])];
+       
         NSMutableIndexSet* newVisibleRows = [[NSMutableIndexSet alloc] init];
+        
         CGFloat yOrigin;
         CGFloat rowHeight;
         do
         {
             [newVisibleRows addIndex: rowToDisplay];
-
+            
             yOrigin = [self startPositionYForRow: rowToDisplay];
             rowHeight = [self heightForRow: rowToDisplay];
-
+            
             PGTableViewCell* cell = [self cachedCellForRow: rowToDisplay];
-
+            
             if (!cell)
             {
                 cell = [[self dataSource] pgTableView: self cellForRow: rowToDisplay];
                 [self setCachedCell: cell forRow: rowToDisplay];
-      
-                [cell setFrame: CGRectMake(0.0, yOrigin, [self bounds].size.width, rowHeight)];
+          
+                [cell setFrame: CGRectMake(0.0, yOrigin, [self bounds].size.width, rowHeight - _pgRowMargin)];
                 [self addSubview: cell];
             }
-
-        rowToDisplay++;
+            
+            rowToDisplay++;
         }
         while (yOrigin + rowHeight < currentEndY && rowToDisplay < [[self rowRecords] count]);
 
         [self returnNonVisibleRowsToThePool: newVisibleRows];
+
         [newVisibleRows release];
     }
 
@@ -161,25 +168,28 @@ This method is going to get called a lot. Every time you scroll the table or, in
 
 If you are playing with this code, you can put an `NSLog` in here to get a feel for the frequency of calls, not least because this drives home the importance of ensuring the `layoutTableRows` is fast.
 
-One thing that could really slow down `layoutTableRows` would be the inefficiency in the `findRowForOffsetY:inRange` method. So it seemed worth putting a little effort into this.
+One thing that could really slow down `layoutTableRows` would be  inefficiency in the `findRowForOffsetY:inRange` method. So it seemed worth putting a little effort into this.
 
 The implementation here uses recursion to narrow in on the first row that is needed for the current vertical offset of the `UIScrollView`. For a table of more than a 5000 rows, this method is more than 100 times faster than just cranking through the list of rows from the start. That said, after doing some measuring it became clear that even unoptimised iteration is fast enough most of the time. By 'fast enough' here I mean that doing it inefficiently has no discernible impact on the user experience, at least for tables up to 10,000 rows or so.
 
-    - (NSInteger) findRowForOffsetY: (CGFloat) yPosition inRange: (NSRange) range;
+- (NSInteger) findRowForOffsetY: (CGFloat) yPosition inRange: (NSRange) range;
+{
+    if (range.length < 2)
     {
-        if (range.length < 2) return (range.location<1) ? range.location : range.location - 1;
-    
-        NSInteger halfwayMark = range.length / 2;
-    
-        if (yPosition > [self startPositionYForRow: range.location + halfwayMark])
-        {
-            return [self findRowForOffsetY: yPosition inRange: NSMakeRange(range.location + (halfwayMark + 1), range.length - (halfwayMark +1))];
-        }
-        else
-        {
-            return [self findRowForOffsetY: yPosition inRange: NSMakeRange(range.location, range.length - halfwayMark)];
-        }
+        return (range.location<1) ? range.location : range.location - 1;
     }
+    
+    NSInteger halfwayMark = range.length / 2;
+    
+    if (yPosition > [self startPositionYForRow: range.location + halfwayMark])
+    {
+        return [self findRowForOffsetY: yPosition inRange: NSMakeRange(range.location + (halfwayMark + 1), range.length - (halfwayMark +1))];
+    }
+    else
+    {
+        return [self findRowForOffsetY: yPosition inRange: NSMakeRange(range.location, range.length - halfwayMark)];
+    }
+}
 
 The final method used by `layoutTableRows` is `returnNonVisibleRowsToThePool:` This makes use of some handy methods provided by the `NSMutableIndexSet` class to figure out which, if any rows, are now no longer visible. For all that are, it clears the pointer to the view in the row's `PGRowRecord` instance, removes the view from its superview and then adds it into the pool.
 
@@ -205,19 +215,28 @@ That's all the hard work. The `reloadData` method just uses code we've already w
 
     - (void) reloadData;
     {
-        [self returnNonVisibleRowsToThePool: nil]; 
+        [self returnNonVisibleRowsToThePool: nil];
         [self generateHeightAndOffsetData];
         [self layoutTableRows];
     }
 
-The rest is just housekeeping, such as setting up data source and delegate protocols. The details are in the full source, along with a bonus `row:changedHeight:` method which allows for a row to change height without forcing the delegate to provide new height information for every other row and a small test app so you can see `PGTableView` working.
+The rest is just housekeeping, such as setting up data source and delegate protocols and providing some convenience methods for accessing our array of PGRowRecords. The details are in the full source, along with a bonus `row:changedHeight:` method which allows for a row to change height without forcing the delegate to provide new height information for every other row.
 
-* [link to source will go here](http://www.obliquely.org.uk)
+The source includes a small test app so you can see `PGTableView` working, showing the text of this article with three different row types: code, headings, and text. The test app lets you turn off the reuse pool so you can see the difference in performance and also lets you run measurements for two variants of findRowForOffset:inRange.
+
+https://github.com/Obliquely/Let-s-Build-UITableView for the source (including the test app) at: 
 
 ## Conclusion ##
 
 One of the things this exercise reveals is just why `UITableView` has to ask for the height of every row when you call the  `reloadData` method. When tables have many rows *and* when the cost of calculating the height of a row is high, this requirement can be a burden. In such cases, it can make sense to cache row heights so that they don't all have to be recalculated when you or the table view calls `reloadData`, e.g. to add an extra row or because the height of one row has changed.  And, in addition, if your table needs to cope with a change orientation that then calls for row height adjustments, you can do work in the background calculating the heights in the orientation you're not in, so that if or when the change comes, the work is already done.
 
-Given that we know the `UITableView` must be keeping its own cache of row heights, it is perhaps mildly annoying that this caching work may need to be done twice. After all, given what we have seen here it seems likely that any implementation would have scope to implement insert, delete, and move methods in such a way that they didn't need to trigger a call `tableView:heightForRowAtIndexPath:` on every row. And it would seem unlikely that it would be hard for Apple to implement a `rowAtIndexPath:changedHeight:` method top cope with growing or shrinking rows. Still, the fully featued UITableView is a mighty class. So perhaps it's not seemly to carp about a minor detail.
+Given that we know the `UITableView` must be keeping its own cache of row heights, it is perhaps mildly annoying that this caching work may need to be done twice. After all, given what we have seen here it seems likely that any implementation would have scope to implement insert, delete, and move methods in such a way that they didn't need to trigger a call `tableView:heightForRowAtIndexPath:` on every row. And it seems likely that it would be easy easy for Apple to implement a `rowAtIndexPath:changedHeight:` method top cope with growing or shrinking rows. Still, the fully featued UITableView is a mighty class. So perhaps it's not seemly to carp about such a minor detail.
 
-Thanks to Mike Ash for the 'Let's Build...' series which prompted this work. See Mike's excellent NSBlog at http://www.mikeash.com/pyblog/
+## Credits etc. ##
+
+Mike Ash's excellent 'Let's Build ...' series over at NSBlog (www.mikeash.com/pyblog) is the model for this article. I was going to suggest to Mike that he consider writing something on UITableView, but while mulling whether or not that would be a big or small ask, I found myself pulled in to the task of building UITableView myself.
+
+The code here if for learning purposes and is not production tested. If you want to make use of any of the code, go ahead. The text is (c) Matthew Elton 2013. If you want to republish it please (a) let me know; (b) acknowledge that I wrote it by including my name and a link to www.obliquely.org.uk.
+
+22nd January 2013
+

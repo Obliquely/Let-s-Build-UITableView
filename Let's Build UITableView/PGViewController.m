@@ -2,8 +2,8 @@
 //  PGViewController.m
 //  Let's Build UITableView
 //
-//  Created by Maxwell Edison on 19/01/2013.
-//  Copyright (c) 2013 Matthew Elton. All rights reserved.
+//  Created by Matthew Elton on 19/01/2013.
+//  www.obliquely.org.uk
 //
 
 #import "PGViewController.h"
@@ -13,6 +13,7 @@
 @property (nonatomic, retain) NSArray* tableRows;
 
 @property (nonatomic, retain) PGTableView* pgTableView;
+@property (nonatomic, retain) UIBarButtonItem* poolBarButtonItem;
 
 @end
 
@@ -60,6 +61,11 @@
         font = [UIFont boldSystemFontOfSize: 15.0];
         rowString = [rowString stringByTrimmingCharactersInSet: [NSCharacterSet characterSetWithCharactersInString: @" #"]];
     }
+    else if ([rowString hasPrefix: @"    "])
+    {
+        font = [UIFont fontWithName: @"CourierNewPSMT" size: 12.0];
+        rowString = [self codeStringFromRowString: rowString];
+    }
 
     CGFloat height = [rowString sizeWithFont: font constrainedToSize: CGSizeMake([[self pgTableView] bounds].size.width - 16.0, MAXFLOAT) lineBreakMode: NSLineBreakByWordWrapping].height;
     
@@ -67,12 +73,25 @@
 }
 
 
+- (NSString*) codeStringFromRowString: rowString;
+{
+    NSArray* codeBlock = [rowString componentsSeparatedByString:@"\n"];
+    NSMutableString* codeString = [[[NSMutableString alloc] init] autorelease];
+    for (NSString* string in codeBlock)
+    {
+        [codeString appendFormat:@"%@\n", ([string length] > 4) ? [string substringFromIndex:4] : string];
+    }
+    
+    return [[codeString copy] autorelease];
+}
+
 //  The two different types of row are somewhat contrived here, but illustrate the pool mechanism.
 
 - (PGTableViewCell*) pgTableView:(PGTableView*) pgTableView cellForRow:(NSInteger)row;
 {
     static NSString* pgStandardRowReuseIdentifier = @"Text";
     static NSString* pgBoldRowReuseIdentifier = @"Heading";
+    static NSString* pgCodeRowReuseIdentifier = @"Code";
     
     NSString* rowString = [[self tableRows] objectAtIndex: row];
     
@@ -85,6 +104,12 @@
         reuseIdentifier = pgBoldRowReuseIdentifier;
         font = [UIFont boldSystemFontOfSize: 15.0];
         rowString = [rowString stringByTrimmingCharactersInSet: [NSCharacterSet characterSetWithCharactersInString: @" #"]];
+    }
+    else if  ([rowString hasPrefix: @"    "])
+    {
+        reuseIdentifier = pgCodeRowReuseIdentifier;
+        font = [UIFont fontWithName: @"CourierNewPSMT" size: 12.0];
+        rowString = [self codeStringFromRowString: rowString];
     }
 
     PGTableViewCell* cell = [pgTableView  dequeueReusableCellWithIdentifier: reuseIdentifier];
@@ -170,18 +195,45 @@
     
     NSLog(@"For %d rows. Efficient: %.8f; Inefficient: %.8f; Inefficent/Efficient: %.1f", rows, efficientTime/1000, inEfficientTime/1000, inEfficientTime/efficientTime);
     
-    // now double the length of the table
-    
-    NSArray* biggerTable = [[self tableRows] arrayByAddingObjectsFromArray: [self tableRows]];
-    [self setTableRows: biggerTable];
     
     startDate = [NSDate date];
     [[self pgTableView] reloadData];
     NSTimeInterval reloadTime = - [startDate timeIntervalSinceNow];
-
-    NSLog(@"Table now has: %d rows. reloadData took: %.4f", rows, reloadTime);
+    
+    NSLog(@"Table has: %d rows. reloadData took: %.4f", rows, reloadTime);
+    
+    UIAlertView* alert = [[UIAlertView alloc] initWithTitle: @"Test Results"
+                                                    message: [NSString stringWithFormat: @"%d rows\n reloadData took: %.4fs\nFast FindRow is %.2f x better", rows, reloadTime, inEfficientTime/efficientTime]
+                                                   delegate: self
+                                          cancelButtonTitle: @"Cancel"
+                                          otherButtonTitles: @"Double Rows", nil];
+    [alert show];
+    [alert release];
 }
 
+
+- (void) alertView:(UIAlertView *)alertView didDismissWithButtonIndex:(NSInteger)buttonIndex;
+{
+    if (buttonIndex == 0) return;
+    
+    NSArray* biggerTable = [[self tableRows] arrayByAddingObjectsFromArray: [self tableRows]];
+    [self setTableRows: biggerTable];
+    [[self pgTableView] reloadData];
+    [self runTest];
+}
+
+- (void) poolToggle;
+{
+    if ([[[self poolBarButtonItem] title] isEqualToString: @"Pool ✗"])
+    {
+        [[self poolBarButtonItem] setTitle: @"Pool ✓"];
+        [[self pgTableView] setDisablePool: NO];
+        return;
+    }
+    
+    [[self poolBarButtonItem] setTitle: @"Pool ✗"];
+    [[self pgTableView] setDisablePool: YES];
+}
 
 #pragma mark - rotation
 
@@ -212,12 +264,17 @@
     
     UIBarButtonItem* foot = [[UIBarButtonItem alloc] initWithTitle: @"⬇" style: UIBarButtonItemStylePlain target: self action:@selector(gotoFoot)];
     
+    UIBarButtonItem* pool = [[UIBarButtonItem alloc] initWithTitle: @"Pool ✓" style: UIBarButtonItemStyleBordered target: self action:@selector(poolToggle)];
+    [self setPoolBarButtonItem: pool];
+    
+    
+    
     UIBarButtonItem* heightTweak = [[UIBarButtonItem alloc] initWithTitle: @"Grow" style: UIBarButtonItemStyleBordered target:  self action:@selector(growRow)];
     
     UIBarButtonItem* flexibleSpace1 = [[UIBarButtonItem alloc] initWithBarButtonSystemItem: UIBarButtonSystemItemFlexibleSpace target:nil action:nil];
     UIBarButtonItem* flexibleSpace2 = [[UIBarButtonItem alloc] initWithBarButtonSystemItem: UIBarButtonSystemItemFlexibleSpace target:nil action:nil];
     
-    [self setToolbarItems: [NSArray arrayWithObjects: refresh, flexibleSpace1, foot, flexibleSpace2, heightTweak, test, nil]];
+    [self setToolbarItems: [NSArray arrayWithObjects: refresh, pool, flexibleSpace1, foot, flexibleSpace2, heightTweak, test, nil]];
     
     [foot release];
     [heightTweak release];
@@ -225,6 +282,7 @@
     [refresh release];
     [flexibleSpace1 release];
     [flexibleSpace2 release];
+    [pool release];
     
     [[self navigationController] setToolbarHidden: NO];
 }

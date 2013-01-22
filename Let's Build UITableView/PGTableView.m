@@ -62,6 +62,12 @@
 
 - (PGTableViewCell*) dequeueReusableCellWithIdentifier: (NSString*) reuseIdentifier;
 {
+    if ([self disablePool])
+    {
+        [self setReusePool: nil];   // empty pool
+        return nil;                 // force creation of new view every time
+    }
+    
     PGTableViewCell* poolCell = nil;
     
     for (PGTableViewCell* tableViewCell in [self reusePool])
@@ -80,7 +86,7 @@
         [poolCell autorelease];
     }
 
-    [self logPool: reuseIdentifier andCell: poolCell];
+    // [self logPool: reuseIdentifier andCell: poolCell];
     
     return poolCell;
 }
