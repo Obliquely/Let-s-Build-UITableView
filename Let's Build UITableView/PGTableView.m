@@ -27,7 +27,7 @@
 
 #pragma mark - init and dealloc
 
-- (void) dealloc;
+- (void) dealloc
 {
     [_pgReusePool release];
     [_pgVisibleRows release];
@@ -36,7 +36,7 @@
 }
 
 
-- (id) initWithCoder:(NSCoder *)aDecoder;
+- (id) initWithCoder:(NSCoder *)aDecoder
 {
     self = [super initWithCoder: aDecoder];
     if (self)
@@ -60,7 +60,7 @@
 
 #pragma mark - public methods
 
-- (PGTableViewCell*) dequeueReusableCellWithIdentifier: (NSString*) reuseIdentifier;
+- (PGTableViewCell*) dequeueReusableCellWithIdentifier: (NSString*) reuseIdentifier
 {
     if ([self disablePool])
     {
@@ -93,7 +93,7 @@
 
 
 
-- (void) reloadData;
+- (void) reloadData
 {
     [self returnNonVisibleRowsToThePool: nil];
     [self generateHeightAndOffsetData];
@@ -103,7 +103,7 @@
 
 
 // bonus content - change the height of just one row w/o asking every row for new height
-- (void) row: (NSInteger) row changedHeight: (CGFloat) height;
+- (void) row: (NSInteger) row changedHeight: (CGFloat) height
 {
     PGRowRecord* rowRecord = (PGRowRecord*)[[self rowRecords] objectAtIndex: row];
     CGFloat adjust = height - [rowRecord height];
@@ -135,7 +135,7 @@
 }
 
 
-- (NSIndexSet*) indexSetOfVisibleRows;
+- (NSIndexSet*) indexSetOfVisibleRows
 {
     return [[[self visibleRows] copy] autorelease];
 }
@@ -143,7 +143,7 @@
 
 #pragma mark - scrollView overrides
 
-- (void) setContentOffset:(CGPoint)contentOffset; //  note: this method called frequently - needs to be fast
+- (void) setContentOffset:(CGPoint)contentOffset //  note: this method called frequently - needs to be fast
 {
     [super setContentOffset: contentOffset];
     [self layoutTableRows];
@@ -152,7 +152,7 @@
 
 #pragma mark - layout the table rows
 
-- (void) layoutTableRows;
+- (void) layoutTableRows
 {
     CGFloat currentStartY = [self contentOffset].y;
     CGFloat currentEndY = currentStartY + [self frame].size.height;
@@ -185,6 +185,9 @@
     }
     while (yOrigin + rowHeight < currentEndY && rowToDisplay < [[self rowRecords] count]);
 
+    
+    NSLog(@"laying out %d row", [newVisibleRows count]);
+    
     [self returnNonVisibleRowsToThePool: newVisibleRows];
 
     [newVisibleRows release];
@@ -192,7 +195,7 @@
 
 
 
-- (void) returnNonVisibleRowsToThePool: (NSMutableIndexSet*) currentVisibleRows;
+- (void) returnNonVisibleRowsToThePool: (NSMutableIndexSet*) currentVisibleRows
 {
     [[self visibleRows] removeIndexes: currentVisibleRows];
     [[self visibleRows] enumerateIndexesUsingBlock:^(NSUInteger row, BOOL *stop)
@@ -209,7 +212,7 @@
 }
 
 
-- (void) generateHeightAndOffsetData;
+- (void) generateHeightAndOffsetData
 {
     CGFloat currentOffsetY = 0.0;
     
@@ -240,8 +243,98 @@
 }
 
 
+- (NSInteger) findRowForOffsetY: (CGFloat) yPosition inRange: (NSRange) range
+{
+    if ([[self rowRecords] count] == 0) return 0;
+    
+    PGRowRecord* rowRecord = [[PGRowRecord alloc] init];
+    [rowRecord setStartPositionY: yPosition];
+    
+    NSInteger returnValue = [[self rowRecords] indexOfObject: rowRecord
+                                               inSortedRange: NSMakeRange(0, [[self rowRecords] count])
+                                                     options: NSBinarySearchingInsertionIndex
+                                             usingComparator: ^NSComparisonResult(PGRowRecord* rowRecord1, PGRowRecord* rowRecord2){
+                                                 if ([rowRecord1 startPositionY] < [rowRecord2 startPositionY]) return NSOrderedAscending;
+                                                 return NSOrderedDescending;
+                                             }];
+    [rowRecord release];
+    if (returnValue == 0) return 0;
+    return returnValue-1;
+}
 
-- (NSInteger) findRowForOffsetY: (CGFloat) yPosition inRange: (NSRange) range;
+
+
+#pragma mark - convenience methods for accessing row records
+
+- (CGFloat) startPositionYForRow: (NSInteger) row
+{
+    return [(PGRowRecord*)[[self rowRecords] objectAtIndex: row] startPositionY];
+}
+
+- (CGFloat) heightForRow: (NSInteger) row
+{
+    return [(PGRowRecord*)[[self rowRecords] objectAtIndex: row] height];
+}
+
+- (PGTableViewCell*) cachedCellForRow: (NSInteger) row
+{
+    return [(PGRowRecord*)[[self rowRecords] objectAtIndex: row] cachedCell];
+}
+
+- (void) setCachedCell: (PGTableViewCell*) cell forRow: (NSInteger) row
+{
+    [(PGRowRecord*)[[self rowRecords] objectAtIndex: row] setCachedCell: cell];
+}
+
+
+#pragma mark - service methods and lazy instantiation
+
+- (void) setup;
+{
+    [self setRowHeight: 40.0];  // default value for row height
+    [self setRowMargin: 2.0];
+}
+ 
+- (NSMutableSet*) reusePool
+{
+    if (!_pgReusePool)
+    {
+        _pgReusePool = [[NSMutableSet alloc] init];
+    }
+    
+    return _pgReusePool;
+}
+
+- (NSMutableIndexSet*) visibleRows
+{
+    if (!_pgVisibleRows)
+    {
+        _pgVisibleRows = [[NSMutableIndexSet alloc] init];
+    }
+    
+    return _pgVisibleRows;
+}
+
+#pragma mark - logging and debugging
+
+- (void) logPool: (NSString*) reuseIdentifier andCell: (PGTableViewCell*) cell
+
+{
+    NSArray* poolIds= [[[self reusePool] allObjects] valueForKey: @"reuseIdentifier"];
+    NSString* poolDescription = [poolIds componentsJoinedByString: @", "];
+    
+    NSString* recycle = @"Recyling a";
+    if (!cell)
+    {
+        recycle = @"Making a new";
+    }
+    
+    NSLog(@"%@ %@ cell. Pool contains %d items (%@)", recycle, reuseIdentifier, [[self reusePool] count], poolDescription);
+}
+
+
+
+- (NSInteger) OLDfindRowForOffsetY: (CGFloat) yPosition inRange: (NSRange) range
 {
     if (range.length < 2)
     {
@@ -260,77 +353,8 @@
     }
 }
 
-#pragma mark - convenience methods for accessing row records
 
-- (CGFloat) startPositionYForRow: (NSInteger) row;
-{
-    return [(PGRowRecord*)[[self rowRecords] objectAtIndex: row] startPositionY];
-}
-
-- (CGFloat) heightForRow: (NSInteger) row;
-{
-    return [(PGRowRecord*)[[self rowRecords] objectAtIndex: row] height];
-}
-
-- (PGTableViewCell*) cachedCellForRow: (NSInteger) row;
-{
-    return [(PGRowRecord*)[[self rowRecords] objectAtIndex: row] cachedCell];
-}
-
-- (void) setCachedCell: (PGTableViewCell*) cell forRow: (NSInteger) row;
-{
-    [(PGRowRecord*)[[self rowRecords] objectAtIndex: row] setCachedCell: cell];
-}
-
-
-#pragma mark - service methods and lazy instantiation
-
-- (void) setup;
-{
-    [self setRowHeight: 40.0];  // default value for row height
-    [self setRowMargin: 2.0];
-}
- 
-- (NSMutableSet*) reusePool;
-{
-    if (!_pgReusePool)
-    {
-        _pgReusePool = [[NSMutableSet alloc] init];
-    }
-    
-    return _pgReusePool;
-}
-
-- (NSMutableIndexSet*) visibleRows;
-{
-    if (!_pgVisibleRows)
-    {
-        _pgVisibleRows = [[NSMutableIndexSet alloc] init];
-    }
-    
-    return _pgVisibleRows;
-}
-
-#pragma mark - logging and debugging
-
-- (void) logPool: (NSString*) reuseIdentifier andCell: (PGTableViewCell*) cell;
-
-{
-    NSArray* poolIds= [[[self reusePool] allObjects] valueForKey: @"reuseIdentifier"];
-    NSString* poolDescription = [poolIds componentsJoinedByString: @", "];
-    
-    NSString* recycle = @"Recyling a";
-    if (!cell)
-    {
-        recycle = @"Making a new";
-    }
-    
-    NSLog(@"%@ %@ cell. Pool contains %d items (%@)", recycle, reuseIdentifier, [[self reusePool] count], poolDescription);
-}
-
-
-
-- (NSInteger) inefficientFindRowForOffsetY: (CGFloat) yPosition inRange: (NSRange) range;
+- (NSInteger) inefficientFindRowForOffsetY: (CGFloat) yPosition inRange: (NSRange) range
 {
     if (range.length == 0) return 0;
     

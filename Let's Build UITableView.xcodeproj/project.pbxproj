@@ -171,7 +171,7 @@
 			isa = PBXProject;
 			attributes = {
 				CLASSPREFIX = PG;
-				LastUpgradeCheck = 0450;
+				LastUpgradeCheck = 0460;
 				ORGANIZATIONNAME = "Matthew Elton";
 			};
 			buildConfigurationList = EF08517A16AAFF9500AB28E7 /* Build configuration list for PBXProject "Let's Build UITableView" */;

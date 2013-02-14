@@ -39,6 +39,8 @@
 // exposed here so we can run test measurements - but not part of public interface
 - (NSInteger) findRowForOffsetY: (CGFloat) yPosition inRange: (NSRange) range;
 - (NSInteger) inefficientFindRowForOffsetY: (CGFloat) yPosition inRange: (NSRange) range;
+- (NSInteger) OLDfindRowForOffsetY: (CGFloat) yPosition inRange: (NSRange) range;
+
 @property (nonatomic) BOOL disablePool;
 
 

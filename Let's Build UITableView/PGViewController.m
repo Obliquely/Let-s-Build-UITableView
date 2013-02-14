@@ -172,8 +172,21 @@
 
 - (void) runTest;
 {
-    NSDate* startDate = [NSDate date];
     NSInteger rows = [self numberOfRowsInPgTableView: [self pgTableView]];
+    
+    [self checkFindRowMethodsAreEquivalent];
+       
+    NSDate* startDate = [NSDate date];
+
+    for (NSInteger index = 0; index < 1000; index++)
+    {
+        CGFloat yPosition = (CGFloat)(random() % (NSInteger) [[self pgTableView] contentSize].height);
+        [[self pgTableView] inefficientFindRowForOffsetY: yPosition inRange: NSMakeRange(0, rows)];
+    }
+    
+    NSTimeInterval oldMethodTime = - [startDate timeIntervalSinceNow];
+    
+    startDate = [NSDate date];
     
     for (NSInteger index = 0; index < 1000; index++)
     {
@@ -181,19 +194,9 @@
         [[self pgTableView] findRowForOffsetY: yPosition inRange: NSMakeRange(0, rows)];
     }
     
-    NSTimeInterval efficientTime = - [startDate timeIntervalSinceNow];
+    NSTimeInterval newMethodTime = - [startDate timeIntervalSinceNow];
     
-    startDate = [NSDate date];
-    
-    for (NSInteger index = 0; index < 1000; index++)
-    {
-        CGFloat yPosition = (CGFloat)(random() % (NSInteger) [[self pgTableView] contentSize].height);
-        [[self pgTableView] inefficientFindRowForOffsetY: yPosition inRange: NSMakeRange(0, rows)];
-    }
-    
-    NSTimeInterval inEfficientTime = - [startDate timeIntervalSinceNow];
-    
-    NSLog(@"For %d rows. Efficient: %.8f; Inefficient: %.8f; Inefficent/Efficient: %.1f", rows, efficientTime/1000, inEfficientTime/1000, inEfficientTime/efficientTime);
+    NSLog(@"For %d rows. OLD method: %.4f; NEW: %.4f; OLD/NEW: %.1f", rows, oldMethodTime*1000, newMethodTime*1000, oldMethodTime/newMethodTime);
     
     
     startDate = [NSDate date];
@@ -203,12 +206,58 @@
     NSLog(@"Table has: %d rows. reloadData took: %.4f", rows, reloadTime);
     
     UIAlertView* alert = [[UIAlertView alloc] initWithTitle: @"Test Results"
-                                                    message: [NSString stringWithFormat: @"%d rows\n reloadData took: %.4fs\nFast FindRow is %.2f x better", rows, reloadTime, inEfficientTime/efficientTime]
+                                                    message: [NSString stringWithFormat: @"%d rows\n reloadData took: %.4fs \nSmart FindRow is %.2f x better", rows, reloadTime, oldMethodTime/newMethodTime]
                                                    delegate: self
                                           cancelButtonTitle: @"Cancel"
                                           otherButtonTitles: @"Double Rows", nil];
     [alert show];
     [alert release];
+}
+
+
+- (void) checkFindRowMethodsAreEquivalent;
+{
+    NSInteger rows = [self numberOfRowsInPgTableView: [self pgTableView]];
+    
+    BOOL testPassed = YES;
+    
+    CGFloat yPosition;
+    
+    yPosition = [[self pgTableView] contentSize].height;
+    testPassed = testPassed && [self testFindRowMethodsAreEquivalentForYPosition: yPosition];
+    
+    yPosition = [[self pgTableView] contentSize].height + 50.0;
+    testPassed = testPassed && [self testFindRowMethodsAreEquivalentForYPosition: yPosition];
+    
+    yPosition = 0.0;
+    testPassed = testPassed && [self testFindRowMethodsAreEquivalentForYPosition: yPosition];
+    
+    yPosition = -50.0;
+    testPassed = testPassed && [self testFindRowMethodsAreEquivalentForYPosition: yPosition];
+    
+    for (NSInteger index = 0; index < 5000; index++)
+    {
+        yPosition = (CGFloat)(random() % (NSInteger) [[self pgTableView] contentSize].height);
+        
+        if ([[self pgTableView] OLDfindRowForOffsetY: yPosition inRange: NSMakeRange(0, rows)] != [[self pgTableView] findRowForOffsetY: yPosition inRange: NSMakeRange(0, rows)])
+        {
+            testPassed = NO;
+        }
+        if (!testPassed) break;
+    }
+    
+    NSLog(@"Check to see methods return same result: %@", testPassed ? @"PASSED" : @"FAILED");
+}
+
+
+- (BOOL) testFindRowMethodsAreEquivalentForYPosition: (CGFloat) yPosition;
+{
+    NSInteger rows = [self numberOfRowsInPgTableView: [self pgTableView]];
+
+    NSInteger result = [[self pgTableView] OLDfindRowForOffsetY: yPosition inRange: NSMakeRange(0, rows)];
+    if (result != [[self pgTableView] findRowForOffsetY: yPosition inRange: NSMakeRange(0, rows)]) return NO;
+    if (result != [[self pgTableView] inefficientFindRowForOffsetY: yPosition inRange: NSMakeRange(0, rows)]) return  NO;
+    return YES;
 }
 
 

@@ -2,7 +2,7 @@
 
 `UITableView` is a powerful and full featured class, but its internal workings can seem mysterious. Most of the time use of the class is straightforward: in return for following the prescribed practice in the documentation, the developer gets a responsive scrolling table that is frugal with memory even when the row count is high. But when pushing the class hard, for example with large tables where each row may have a different and varying height, it helps to have a deeper understanding of how the class works.
 
-In this article, I am going to implement a basic version of a table view class. This will show the class works its magic and also show just why `UITableView` asks what it does - and when - of its data source and delegate.
+In this article, I am going to implement a basic version of a table view class. This will show how the class works its magic and also show just why `UITableView` asks what it does - and when - of its data source and delegate.
 
 ## Implementation Strategy ##
 
@@ -45,7 +45,7 @@ If you've used `UITableView` at all, you'll be familiar with the standard patter
 
 OK, so let's implement `dequeueReusableCellWithIdentifier:`.
 
-    - (PGTableViewCell*) dequeueReusableCellWithIdentifier: (NSString*) reuseIdentifier;
+    - (PGTableViewCell*) dequeueReusableCellWithIdentifier: (NSString*) reuseIdentifier
     {
         PGTableViewCell* poolCell = nil;
         
@@ -78,7 +78,7 @@ The method assumes that any view in reusePool is available, i.e it is not curren
 
 For our implementation, we will simplify a little. Our table will not have any sections, so we just need to learn about the number of rows. We'll require our data source to implement `numberOfRowsInPgTableView`. And, following Apple, we'll offer an optional `pgTableView:heightForRow:` method as part of the delegate protocol.
 
-    - (void) generateHeightAndOffsetData;
+    - (void) generateHeightAndOffsetData
     {
         CGFloat currentOffsetY = 0.0;
         
@@ -87,7 +87,7 @@ For our implementation, we will simplify a little. Our table will not have any s
         NSMutableArray* newRowRecords = [NSMutableArray array];
         
         NSInteger numberOfRows = [[self dataSource] numberOfRowsInPgTableView: self];
-
+        
         for (NSInteger row = 0; row < numberOfRows; row++)
         {
             PGRowRecord* rowRecord = [[PGRowRecord alloc] init];
@@ -108,7 +108,7 @@ For our implementation, we will simplify a little. Our table will not have any s
         [self setContentSize: CGSizeMake([self bounds].size.width,  currentOffsetY)];
     }
 
-The code builds an array of `PGRowRecord` instances that capture what we will need to perform our layout work. A `PGRowRecord` records the starting position of a row, its height and - as we'll see later - a pointer to the view that represents the row if the row is visible. This `generateHeightAndOffsetData` has no idea what is visible or not, so it doesn't set the pointer to the view.
+The code builds an array of `PGRowRecord` instances that capture what we will need to perform our layout work. A `PGRowRecord` records the starting position of a row, its height and - as we'll see later - a pointer to the view that represents the row if the row is visible. The `generateHeightAndOffsetData` method has no idea what is visible or not, so it doesn't set the pointer to the view.
 
 As the code shows, we need to check to see if the delegate is up for providing height information. If it is then we ask it once for each row in the table.
 
@@ -120,7 +120,7 @@ Having gathered start positions and heights, the work of laying out the views is
 
 The only complexity here is keeping careful track of which rows are displayed so the table view can then check to see if any that were previously visible have now gone. In that case, it will want to put them back in the pool for reuse. The `returnNonVisibleRowsToThePool:` method will do this work if required.
 
-    - (void) layoutTableRows;
+    - (void) layoutTableRows
     {
         CGFloat currentStartY = [self contentOffset].y;
         CGFloat currentEndY = currentStartY + [self frame].size.height;
@@ -152,15 +152,15 @@ The only complexity here is keeping careful track of which rows are displayed so
             rowToDisplay++;
         }
         while (yOrigin + rowHeight < currentEndY && rowToDisplay < [[self rowRecords] count]);
-
+        
         [self returnNonVisibleRowsToThePool: newVisibleRows];
-
+        
         [newVisibleRows release];
     }
 
 This method is going to get called a lot. Every time you scroll the table or, indeed, every time the system does, this method will need to be called. Ensuring that it is is achieved by overriding the superclass `setContentOffset:` method as follows.
 
-    - (void) setContentOffset:(CGPoint)contentOffset;
+    - (void) setContentOffset:(CGPoint)contentOffset
     {
         [super setContentOffset: contentOffset];
         [self layoutTableRows];
@@ -170,30 +170,31 @@ If you are playing with this code, you can put an `NSLog` in here to get a feel 
 
 One thing that could really slow down `layoutTableRows` would be  inefficiency in the `findRowForOffsetY:inRange` method. So it seemed worth putting a little effort into this.
 
-The implementation here uses recursion to narrow in on the first row that is needed for the current vertical offset of the `UIScrollView`. For a table of more than a 5000 rows, this method is more than 100 times faster than just cranking through the list of rows from the start. That said, after doing some measuring it became clear that even unoptimised iteration is fast enough most of the time. By 'fast enough' here I mean that doing it inefficiently has no discernible impact on the user experience, at least for tables up to 10,000 rows or so.
+Because the array of rowRecords is already sorted, we can take advantage of the NSArray method indexOfObject:inSortedRange:options:usingComparator:. This perform a binary search to home in on the first row that is needed for the current vertical offset of the UIScrollView. For a table of 6000 rows or so, this method can be 100 times faster than just cranking through the list of rows from the start. That said, after doing some measuring it became clear that even unoptimised iteration is fast enough most of the time. By 'fast enough' here I mean that doing it inefficiently has no discernible impact on the user experience, at least for tables up to 10,000 rows.
 
-- (NSInteger) findRowForOffsetY: (CGFloat) yPosition inRange: (NSRange) range;
-{
-    if (range.length < 2)
+    - (NSInteger) findRowForOffsetY: (CGFloat) yPosition inRange: (NSRange) range
     {
-        return (range.location<1) ? range.location : range.location - 1;
+        if ([[self rowRecords] count] == 0) return 0;
+        
+        PGRowRecord* rowRecord = [[PGRowRecord alloc] init];
+        [rowRecord setStartPositionY: yPosition];
+        
+        NSInteger returnValue = [[self rowRecords] indexOfObject: rowRecord
+                                                   inSortedRange: NSMakeRange(0, [[self rowRecords] count])
+                                                         options: NSBinarySearchingInsertionIndex
+                                                 usingComparator: ^NSComparisonResult(PGRowRecord* rowRecord1, PGRowRecord* rowRecord2){
+                                                     if ([rowRecord1 startPositionY] < [rowRecord2 startPositionY]) return NSOrderedAscending;
+                                                     return NSOrderedDescending;
+                                                 }];
+        [rowRecord release];
+        if (returnValue == 0) return 0;
+        return returnValue - 1;
     }
-    
-    NSInteger halfwayMark = range.length / 2;
-    
-    if (yPosition > [self startPositionYForRow: range.location + halfwayMark])
-    {
-        return [self findRowForOffsetY: yPosition inRange: NSMakeRange(range.location + (halfwayMark + 1), range.length - (halfwayMark +1))];
-    }
-    else
-    {
-        return [self findRowForOffsetY: yPosition inRange: NSMakeRange(range.location, range.length - halfwayMark)];
-    }
-}
+
 
 The final method used by `layoutTableRows` is `returnNonVisibleRowsToThePool:` This makes use of some handy methods provided by the `NSMutableIndexSet` class to figure out which, if any rows, are now no longer visible. For all that are, it clears the pointer to the view in the row's `PGRowRecord` instance, removes the view from its superview and then adds it into the pool.
 
-    - (void) returnNonVisibleRowsToThePool: (NSMutableIndexSet*) currentVisibleRows;
+    - (void) returnNonVisibleRowsToThePool: (NSMutableIndexSet*) currentVisibleRows
     {
         [[self visibleRows] removeIndexes: currentVisibleRows];
         [[self visibleRows] enumerateIndexesUsingBlock:^(NSUInteger row, BOOL *stop)
@@ -222,9 +223,9 @@ That's all the hard work. The `reloadData` method just uses code we've already w
 
 The rest is just housekeeping, such as setting up data source and delegate protocols and providing some convenience methods for accessing our array of PGRowRecords. The details are in the full source, along with a bonus `row:changedHeight:` method which allows for a row to change height without forcing the delegate to provide new height information for every other row.
 
-The source includes a small test app so you can see `PGTableView` working, showing the text of this article with three different row types: code, headings, and text. The test app lets you turn off the reuse pool so you can see the difference in performance and also lets you run measurements for two variants of findRowForOffset:inRange.
+The source includes a small test app so you can see `PGTableView` working, showing the text of this article with three different row types: code, headings, and text. The test app lets you turn off the reuse pool so you can see the difference in performance and also lets you run measurements for two variants of `findRowForOffset:inRange`.
 
-https://github.com/Obliquely/Let-s-Build-UITableView for the source (including the test app) at: 
+See https://github.com/Obliquely/Let-s-Build-UITableView for the source, including the test app. The code here is for learning purposes and is not production tested. If you want to make use of any of the code, please feel free.
 
 ## Conclusion ##
 
@@ -232,11 +233,8 @@ One of the things this exercise reveals is just why `UITableView` has to ask for
 
 Given that we know the `UITableView` must be keeping its own cache of row heights, it is perhaps mildly annoying that this caching work may need to be done twice. After all, given what we have seen here it seems likely that any implementation would have scope to implement insert, delete, and move methods in such a way that they didn't need to trigger a call `tableView:heightForRowAtIndexPath:` on every row. And it seems likely that it would be easy easy for Apple to implement a `rowAtIndexPath:changedHeight:` method top cope with growing or shrinking rows. Still, the fully featued UITableView is a mighty class. So perhaps it's not seemly to carp about such a minor detail.
 
-## Credits etc. ##
+## Notes ##
 
-Mike Ash's excellent 'Let's Build ...' series over at NSBlog (www.mikeash.com/pyblog) is the model for this article. I was going to suggest to Mike that he consider writing something on UITableView, but while mulling whether or not that would be a big or small ask, I found myself pulled in to the task of building UITableView myself.
+Thanks to Mike Ash for his excellent 'Let's Build ...' series over at NSBlog (www.mikeash.com/pyblog), which prompted the idea of this implementation and write up. Mike was kind enough to accept this as a guest post. Mike also suggested using the indexOfObject:inSortedRange:options:usingComparator: method over my handcrafted binary search, yielding both shorter code and a faster implementation.
 
-The code here if for learning purposes and is not production tested. If you want to make use of any of the code, go ahead. The text is (c) Matthew Elton 2013. If you want to republish it please (a) let me know; (b) acknowledge that I wrote it by including my name and a link to www.obliquely.org.uk.
-
-22nd January 2013
-
+The text is (c) Matthew Elton 2013. Initial draft: 22nd January 2013; revised 14 Feb 2013.
